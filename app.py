@@ -220,8 +220,10 @@ def cut_clip(src, words, c, out_dir, idx, vertical, captions):
 
 def friendly(e):
     if isinstance(e, yt_dlp.utils.DownloadError):
+        detail = re.sub(r"\x1b\[[0-9;]*m", "", str(e))[-220:]
         return ("Video download nahi ho paaya. Link check karo. Private ya age-restricted "
-                "video ho sakta hai, ya YouTube ne server ko block kiya hai (README me cookies dekho).")
+                "video ho sakta hai, ya YouTube ne server ko block kiya hai (README me cookies dekho). "
+                f"Asli error: {detail}")
     return str(e) or "Kuch gadbad ho gayi."
 
 
