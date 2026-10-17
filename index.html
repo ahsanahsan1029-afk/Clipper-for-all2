@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clip Maker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Hind:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #e8edf8;
+  --ink: #12163a;
+  --muted: #5b6190;
+  --blue: #3445ff;
+  --yellow: #ffd43b;
+  --card: #ffffff;
+  --line: #cfd6ea;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+*, *::before, *::after { box-sizing: inherit; }
+html { background: var(--bg); }
+body {
+  margin: 0 auto; max-width: 560px; padding: 28px 18px 60px;
+  background: var(--bg); color: var(--ink);
+  font-family: "Hind", system-ui, sans-serif; font-size: 17px; line-height: 1.5;
+}
+h1 {
+  font-family: "Bricolage Grotesque", "Hind", sans-serif; font-weight: 800;
+  font-size: clamp(2.1rem, 9vw, 2.9rem); line-height: 1.05; letter-spacing: -0.02em;
+  margin: 0 0 10px;
+}
+.lead { color: var(--muted); margin: 0 0 24px; max-width: 34ch; }
+
+label.field { display: block; font-weight: 600; margin: 0 0 8px; }
+input[type=url] {
+  width: 100%; font: inherit; font-size: 16px; padding: 16px;
+  border: 2px solid var(--ink); border-radius: 14px; background: #fff; color: var(--ink);
+}
+input[type=url]:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible {
+  outline: 3px solid var(--blue); outline-offset: 2px;
+}
+
+.opts { display: grid; gap: 16px; margin: 20px 0; }
+.seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg button {
+  font: inherit; font-weight: 500; padding: 10px 14px; border-radius: 999px;
+  border: 1.5px solid var(--line); background: #fff; color: var(--ink); cursor: pointer;
+}
+.seg button[aria-pressed=true] { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+.go {
+  width: 100%; font: inherit; font-family: "Bricolage Grotesque", "Hind", sans-serif;
+  font-weight: 700; font-size: 1.15rem; padding: 18px; border: 0; border-radius: 14px;
+  background: var(--blue); color: #fff; cursor: pointer;
+}
+.go:disabled { background: #8c96d6; cursor: wait; }
+
+.progress { margin-top: 22px; }
+.progress[hidden], .results[hidden], .error[hidden] { display: none; }
+.bar { height: 10px; background: #fff; border-radius: 99px; overflow: hidden; border: 1.5px solid var(--ink); }
+.bar > i { display: block; height: 100%; width: 0; background: var(--yellow); transition: width .4s; }
+.stage { margin: 8px 0 0; color: var(--muted); }
+.error { margin-top: 18px; padding: 14px; border-radius: 12px; background: #fff; border: 2px solid #c62828; color: #8a1c1c; }
+
+.results { margin-top: 30px; }
+h2 { font-family: "Bricolage Grotesque", "Hind", sans-serif; font-size: 1.35rem; margin: 0 0 4px; }
+.src { color: var(--muted); margin: 0 0 12px; font-size: .95rem; overflow-wrap: anywhere; }
+
+.strip { position: relative; height: 34px; background: #fff; border: 1.5px solid var(--ink); border-radius: 8px; margin-bottom: 4px; }
+.strip a {
+  position: absolute; top: 3px; bottom: 3px; min-width: 9px; background: var(--yellow);
+  border: 1.5px solid var(--ink); border-radius: 4px;
+}
+.ends { display: flex; justify-content: space-between; color: var(--muted); font-size: .85rem; margin-bottom: 22px; }
+
+.clip { background: var(--card); border: 1.5px solid var(--ink); border-radius: 20px; overflow: hidden; margin-bottom: 20px; scroll-margin-top: 16px; }
+.clip video { display: block; width: 100%; max-height: 72vh; background: #000; }
+.clip .meta { padding: 14px 16px 16px; }
+.clip h3 { margin: 0 0 2px; font-size: 1.05rem; line-height: 1.3; }
+.clip .time { margin: 0 0 8px; color: var(--muted); font-size: .9rem; }
+.clip .cap { margin: 0 0 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.row { display: flex; gap: 8px; }
+.row button, .row a {
+  flex: 1; text-align: center; text-decoration: none; font: inherit; font-weight: 600;
+  padding: 12px 10px; border-radius: 12px; border: 1.5px solid var(--ink);
+  background: #fff; color: var(--ink); cursor: pointer;
+}
+.row a { background: var(--ink); color: #fff; }
+
+.note { margin-top: 28px; color: var(--muted); font-size: .88rem; }
+@media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
+</style>
+</head>
+<body>
+<h1>Lamba video do, chhote clips lo.</h1>
+<p class="lead">YouTube link paste karo. Best moments kat kar caption ke saath mil jayenge.</p>
+
+<label class="field" for="url">YouTube link</label>
+<input id="url" type="url" inputmode="url" placeholder="https://youtube.com/watch?v=..." autocomplete="off">
+
+<div class="opts">
+  <div>
+    <label class="field">Kitne clips</label>
+    <div class="seg" data-key="count">
+      <button type="button" data-v="3" aria-pressed="false">3</button>
+      <button type="button" data-v="5" aria-pressed="true">5</button>
+      <button type="button" data-v="8" aria-pressed="false">8</button>
+      <button type="button" data-v="10" aria-pressed="false">10</button>
+    </div>
+  </div>
+  <div>
+    <label class="field">Clip ki length</label>
+    <div class="seg" data-key="len">
+      <button type="button" data-v="20-40" aria-pressed="false">20 se 40 sec</button>
+      <button type="button" data-v="30-60" aria-pressed="true">30 se 60 sec</button>
+      <button type="button" data-v="45-90" aria-pressed="false">45 se 90 sec</button>
+    </div>
+  </div>
+  <div>
+    <label class="field">Format</label>
+    <div class="seg" data-key="format">
+      <button type="button" data-v="vertical" aria-pressed="true">Shorts (9:16)</button>
+      <button type="button" data-v="original" aria-pressed="false">Original (16:9)</button>
+    </div>
+  </div>
+  <div>
+    <label class="field">Video par caption</label>
+    <div class="seg" data-key="captions">
+      <button type="button" data-v="1" aria-pressed="true">Haan</button>
+      <button type="button" data-v="0" aria-pressed="false">Nahi</button>
+    </div>
+  </div>
+</div>
+
+<button class="go" id="go" type="button">Clips banao</button>
+
+<div class="progress" id="progress" hidden aria-live="polite">
+  <div class="bar"><i id="fill"></i></div>
+  <p class="stage" id="stage"></p>
+</div>
+<div class="error" id="error" role="alert" hidden></div>
+
+<section class="results" id="results" hidden>
+  <h2 id="rtitle">Aapke clips</h2>
+  <p class="src" id="rsrc"></p>
+  <div class="strip" id="strip" aria-label="Video me clips kahan se aaye"></div>
+  <div class="ends"><span>0:00</span><span id="total"></span></div>
+  <div id="list"></div>
+</section>
+
+<p class="note">Sirf wahi videos use karo jinke aap owner ho ya jinki aapko permission hai.</p>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const opts = { count: "5", len: "30-60", format: "vertical", captions: "1" };
+let timer = null, shown = new Set(), stripDone = false;
+
+document.querySelectorAll(".seg").forEach((seg) => {
+  seg.addEventListener("click", (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    seg.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    opts[seg.dataset.key] = b.dataset.v;
+  });
+});
+
+const fmt = (t) => {
+  t = Math.round(t); const h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
+  return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s).padStart(2, "0");
+};
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function showError(msg) {
+  $("#error").textContent = msg; $("#error").hidden = false;
+  $("#progress").hidden = true; $("#go").disabled = false;
+}
+
+$("#go").addEventListener("click", async () => {
+  const url = $("#url").value.trim();
+  $("#error").hidden = true; $("#results").hidden = true;
+  $("#list").innerHTML = ""; $("#strip").innerHTML = ""; shown = new Set(); stripDone = false;
+  if (!url) { showError("Pehle YouTube link paste karo."); return; }
+  const [min, max] = opts.len.split("-").map(Number);
+  $("#go").disabled = true; $("#progress").hidden = false;
+  $("#fill").style.width = "0%"; $("#stage").textContent = "Shuru ho raha hai...";
+  try {
+    const r = await fetch("/api/generate", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, count: +opts.count, min, max, format: opts.format, captions: opts.captions === "1" }),
+    });
+    const d = await r.json();
+    if (!r.ok) return showError(d.error || "Request fail ho gayi.");
+    poll(d.id);
+  } catch { showError("Server se connect nahi ho paaya."); }
+});
+
+function poll(id) {
+  clearInterval(timer);
+  timer = setInterval(async () => {
+    try {
+      const r = await fetch("/api/status/" + id);
+      const j = await r.json();
+      if (!r.ok) { clearInterval(timer); return showError(j.error); }
+      $("#fill").style.width = j.progress + "%";
+      $("#stage").textContent = j.stage;
+      render(j);
+      if (j.status === "done") { clearInterval(timer); $("#progress").hidden = true; $("#go").disabled = false; }
+      if (j.status === "error") { clearInterval(timer); showError(j.error); }
+    } catch { /* agli poll me retry */ }
+  }, 2000);
+}
+
+function render(j) {
+  if (j.plan.length && !stripDone) {
+    stripDone = true; $("#results").hidden = false;
+    $("#rsrc").textContent = j.title || "";
+    $("#total").textContent = fmt(j.duration);
+    j.plan.forEach((p) => {
+      const a = document.createElement("a");
+      a.href = "#clip-" + p.n; a.setAttribute("aria-label", "Clip " + p.n);
+      a.style.left = (p.start / j.duration * 100) + "%";
+      a.style.width = ((p.end - p.start) / j.duration * 100) + "%";
+      $("#strip").appendChild(a);
+    });
+  }
+  j.clips.forEach((c) => {
+    if (shown.has(c.n)) return; shown.add(c.n);
+    const el = document.createElement("article");
+    el.className = "clip"; el.id = "clip-" + c.n;
+    el.innerHTML = `
+      <video controls playsinline preload="metadata" src="${c.video}"></video>
+      <div class="meta">
+        <h3>${esc(c.title)}</h3>
+        <p class="time">Clip ${c.n}, ${fmt(c.start)} se ${fmt(c.end)}</p>
+        <p class="cap">${esc(c.caption)}</p>
+        <div class="row">
+          <button type="button">Caption copy karo</button>
+          <a href="${c.video}" download="clip_${c.n}.mp4">Video save karo</a>
+        </div>
+      </div>`;
+    const btn = el.querySelector("button");
+    btn.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(c.caption); } catch {
+        const t = document.createElement("textarea"); t.value = c.caption;
+        document.body.appendChild(t); t.select(); document.execCommand("copy"); t.remove();
+      }
+      btn.textContent = "Copy ho gaya"; setTimeout(() => (btn.textContent = "Caption copy karo"), 1500);
+    });
+    $("#list").appendChild(el);
+  });
+}
+</script>
+</body>
+</html>
