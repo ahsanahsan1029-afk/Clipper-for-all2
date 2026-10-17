@@ -35,6 +35,7 @@ h1 {
 .lead { color: var(--muted); margin: 0 0 24px; max-width: 34ch; }
 
 label.field { display: block; font-weight: 600; margin: 0 0 8px; }
+input[type=file] { width: 100%; font: inherit; font-size: 16px; padding: 14px; border: 2px dashed var(--ink); border-radius: 14px; background: #fff; color: var(--ink); }
 input[type=url] {
   width: 100%; font: inherit; font-size: 16px; padding: 16px;
   border: 2px solid var(--ink); border-radius: 14px; background: #fff; color: var(--ink);
@@ -98,8 +99,18 @@ h2 { font-family: "Bricolage Grotesque", "Hind", sans-serif; font-size: 1.35rem;
 <h1>Lamba video do, chhote clips lo.</h1>
 <p class="lead">YouTube link paste karo. Best moments kat kar caption ke saath mil jayenge.</p>
 
-<label class="field" for="url">YouTube link</label>
-<input id="url" type="url" inputmode="url" placeholder="https://youtube.com/watch?v=..." autocomplete="off">
+<div class="seg" data-key="mode" style="margin-bottom:16px">
+  <button type="button" data-v="file" aria-pressed="true">Video file upload</button>
+  <button type="button" data-v="link" aria-pressed="false">YouTube link</button>
+</div>
+<div id="fileBox">
+  <label class="field" for="file">Video chuno (phone se)</label>
+  <input id="file" type="file" accept="video/*,audio/*">
+</div>
+<div id="linkBox" hidden>
+  <label class="field" for="url">YouTube link</label>
+  <input id="url" type="url" inputmode="url" placeholder="https://youtube.com/watch?v=..." autocomplete="off">
+</div>
 
 <div class="opts">
   <div>
@@ -155,7 +166,7 @@ h2 { font-family: "Bricolage Grotesque", "Hind", sans-serif; font-size: 1.35rem;
 
 <script>
 const $ = (s) => document.querySelector(s);
-const opts = { count: "5", len: "30-60", format: "vertical", captions: "1" };
+const opts = { mode: "file", count: "5", len: "30-60", format: "vertical", captions: "1" };
 let timer = null, shown = new Set(), stripDone = false;
 
 document.querySelectorAll(".seg").forEach((seg) => {
@@ -164,6 +175,11 @@ document.querySelectorAll(".seg").forEach((seg) => {
     seg.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b));
     opts[seg.dataset.key] = b.dataset.v;
   });
+});
+
+document.querySelector('[data-key="mode"]').addEventListener("click", () => {
+  $("#fileBox").hidden = opts.mode !== "file";
+  $("#linkBox").hidden = opts.mode !== "link";
 });
 
 const fmt = (t) => {
@@ -181,15 +197,26 @@ $("#go").addEventListener("click", async () => {
   const url = $("#url").value.trim();
   $("#error").hidden = true; $("#results").hidden = true;
   $("#list").innerHTML = ""; $("#strip").innerHTML = ""; shown = new Set(); stripDone = false;
-  if (!url) { showError("Pehle YouTube link paste karo."); return; }
+  const file = $("#file").files[0];
+  if (opts.mode === "link" && !url) { showError("Pehle YouTube link paste karo."); return; }
+  if (opts.mode === "file" && !file) { showError("Pehle video file chuno."); return; }
   const [min, max] = opts.len.split("-").map(Number);
   $("#go").disabled = true; $("#progress").hidden = false;
   $("#fill").style.width = "0%"; $("#stage").textContent = "Shuru ho raha hai...";
   try {
-    const r = await fetch("/api/generate", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, count: +opts.count, min, max, format: opts.format, captions: opts.captions === "1" }),
-    });
+    let r;
+    if (opts.mode === "file") {
+      $("#stage").textContent = "Video upload ho raha hai...";
+      const fd = new FormData();
+      fd.append("file", file); fd.append("count", opts.count); fd.append("min", min);
+      fd.append("max", max); fd.append("format", opts.format); fd.append("captions", opts.captions);
+      r = await fetch("/api/upload", { method: "POST", body: fd });
+    } else {
+      r = await fetch("/api/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, count: +opts.count, min, max, format: opts.format, captions: opts.captions === "1" }),
+      });
+    }
     const d = await r.json();
     if (!r.ok) return showError(d.error || "Request fail ho gayi.");
     poll(d.id);
