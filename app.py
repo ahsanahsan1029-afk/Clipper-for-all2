@@ -272,7 +272,10 @@ def process(jid, url, n, lo, hi, vertical, captions):
 # ---------- routes ----------
 @app.get("/")
 def index():
-    return send_from_directory(BASE / "static", "index.html")
+    for d in (BASE / "static", BASE):
+        if (d / "index.html").exists():
+            return send_from_directory(d, "index.html")
+    return "index.html file repo me nahi mili. Use app.py ke saath upload karo.", 404
 
 
 @app.post("/api/generate")
