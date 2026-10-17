@@ -26,6 +26,7 @@ COOKIES_FILE = os.environ.get("COOKIES_FILE")  # optional, YouTube block se bach
 KEEP_SECONDS = 6 * 3600
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("MAX_UPLOAD_MB", "400")) * 1024 * 1024
 jobs = {}
 gate = threading.Semaphore(1)  # ek time par ek hi heavy job
 _model = None
@@ -227,7 +228,18 @@ def friendly(e):
     return str(e) or "Kuch gadbad ho gayi."
 
 
-def process(jid, url, n, lo, hi, vertical, captions):
+def probe_duration(path):
+    p = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=nw=1:nk=1", str(path)],
+        capture_output=True, text=True)
+    try:
+        return float(p.stdout.strip())
+    except ValueError:
+        raise ValueError("Ye file video/audio jaisi nahi lag rahi.")
+
+
+def process(jid, url, n, lo, hi, vertical, captions, upload=None):
     job = jobs[jid]
     folder = DATA / jid
     clips_dir = folder / "clips"
@@ -235,8 +247,13 @@ def process(jid, url, n, lo, hi, vertical, captions):
     try:
         update(job, "Line me hai...", 1)
         with gate:
-            update(job, "Video download ho raha hai...", 5)
-            src = download(url, folder, job)
+            if upload:
+                src = Path(upload)
+                if probe_duration(src) > MAX_MINUTES * 60:
+                    raise ValueError(f"Video {MAX_MINUTES} minute se lamba hai.")
+            else:
+                update(job, "Video download ho raha hai...", 5)
+                src = download(url, folder, job)
 
             update(job, "Awaaz sun ke text bana rahe hain...", 28)
             segs, words = transcribe(src, folder, job)
@@ -303,6 +320,38 @@ def generate():
         target=process,
         args=(jid, url, n, lo, hi, body.get("format", "vertical") == "vertical",
               bool(body.get("captions", True))),
+        daemon=True,
+    ).start()
+    return jsonify(id=jid)
+
+
+@app.post("/api/upload")
+def upload():
+    f = request.files.get("file")
+    if not f or not f.filename:
+        return jsonify(error="Video file chuno."), 400
+    try:
+        n = max(1, min(int(request.form.get("count", 5)), 12))
+        lo = max(10, int(request.form.get("min", 30)))
+        hi = min(120, int(request.form.get("max", 60)))
+    except ValueError:
+        return jsonify(error="Settings galat hain."), 400
+    if hi <= lo:
+        return jsonify(error="Length range galat hai."), 400
+
+    purge_old()
+    jid = uuid.uuid4().hex
+    folder = DATA / jid
+    folder.mkdir(parents=True)
+    ext = re.sub(r"[^a-z0-9]", "", Path(f.filename).suffix.lower())[:5] or "mp4"
+    src = folder / f"source.{ext}"
+    f.save(src)
+    jobs[jid] = {"status": "running", "stage": "Shuru ho raha hai...", "progress": 0,
+                 "clips": [], "plan": [], "duration": 0, "title": f.filename}
+    threading.Thread(
+        target=process,
+        args=(jid, "", n, lo, hi, request.form.get("format", "vertical") == "vertical",
+              request.form.get("captions", "1") == "1", str(src)),
         daemon=True,
     ).start()
     return jsonify(id=jid)
